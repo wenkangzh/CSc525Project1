@@ -15,14 +15,12 @@
 
 void handleArp( struct sr_arphdr *arphdr,
 				struct sr_instance* sr,
-			    struct sr_ethernet_hdr *ethhdr,
-			    uint8_t * packet/* lent */,
-        		unsigned int len,
-        		char* interface/* lent */);
+				struct sr_ethernet_hdr *ethhdr,
+				uint8_t * packet/* lent */,
+				unsigned int len,
+				char* interface/* lent */);
 
 void handleIp(struct ip* iphdr);
-
-
 
 
 #endif

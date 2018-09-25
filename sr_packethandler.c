@@ -16,16 +16,15 @@ void handleIp(struct ip* iphdr){
 
 
 
-void handleArp(struct sr_arphdr *arphdr,
+void handleArp( struct sr_arphdr *arphdr,
                 struct sr_instance* sr,
-			    struct sr_ethernet_hdr *ethhdr,
+                struct sr_ethernet_hdr *ethhdr,
                 uint8_t * packet/* lent */,
-        		unsigned int len,
-        		char* interface/* lent */){
+                unsigned int len,
+                char* interface/* lent */){
 
 	    // if arp request, we simply open it, change it and send back.
-    
-       
+           
         
         // handleArp(arphdr,sr, ethhdr,packet,len,interface);
         printf(" ARP packet Received \n");
