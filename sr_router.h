@@ -12,7 +12,10 @@
 #include <netinet/in.h>
 #include <sys/time.h>
 #include <stdio.h>
+<<<<<<< HEAD
 #include "sr_packethandler.h"
+=======
+>>>>>>> origin/master
 
 #include "sr_protocol.h"
 #ifdef VNL
