@@ -27,27 +27,29 @@ void handleArp( struct sr_arphdr *arphdr,
            
         
         // handleArp(arphdr,sr, ethhdr,packet,len,interface);
-        printf(" ARP packet Received \n");
-        printf("%d\n",arphdr->ar_op);
 
             // if arp request, we simply open it, change it and send back.
-    if(arphdr->ar_op==ARP_REQUEST){
+    if(ntohs(arphdr->ar_op)==ARP_REQUEST){
 
         printf(" ARP is request \n");
 
-        arphdr->ar_op = ARP_REPLY; // change to arp reply
+        arphdr->ar_op = htons(ARP_REPLY); // change to arp reply
 
         // change sender/target info.  IP and MAC
         uint32_t tmp = arphdr->ar_tip;
         arphdr->ar_tip = arphdr->ar_sip;
         arphdr->ar_sip = tmp;
         
+        //modify the arpMAC
         memcpy(arphdr->ar_tha,arphdr->ar_sha,6);
         memcpy(arphdr->ar_sha,sr->if_list->addr,6);
+
 
         //modify ethernet header!
         memcpy(ethhdr->ether_dhost,ethhdr->ether_shost,6);
         memcpy(ethhdr->ether_shost,sr->if_list->addr,6);
+
+ 
 
 
 

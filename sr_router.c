@@ -70,16 +70,20 @@ void sr_handlepacket(struct sr_instance* sr,
     struct sr_ethernet_hdr *ethhdr = (struct sr_ethernet_hdr *) packet;
     uint16_t ether_type = ethhdr -> ether_type;
 
-    printf("%d\n",ether_type);
+    printf("The ether_type is  %d \n",ntohs(ether_type);
 
     // Arp packet
-    if(ether_type == ETHERTYPE_ARP){
+    if(ntohs(ether_type) == ETHERTYPE_ARP){
         struct sr_arphdr *arphdr = (struct sr_arphdr*) (packet+sizeof(struct sr_ethernet_hdr));
+
+        printf(" ARP packet Received \n");
         handleArp(arphdr,sr,ethhdr,packet,len,interface);
     }
     // ip packet
-    else if (ether_type == ETHERTYPE_IP) {
+    else if (ntohs(ether_type) == ETHERTYPE_IP) {
         struct ip* iphdr = (struct ip*) (packet+sizeof(struct sr_ethernet_hdr));
+
+        printf("Received an IP packet \n");
         handleIp(iphdr);
     }
     else // unrecongized.
