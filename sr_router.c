@@ -13,11 +13,7 @@
 
 #include <stdio.h>
 #include <assert.h>
-<<<<<<< HEAD
 #include <string.h>
-=======
-
->>>>>>> origin/master
 
 #include "sr_if.h"
 #include "sr_rt.h"
@@ -71,7 +67,6 @@ void sr_handlepacket(struct sr_instance* sr,
 
     printf("*** -> Received packet of length %d \n",len);
 
-<<<<<<< HEAD
     struct sr_ethernet_hdr *ethhdr = (struct sr_ethernet_hdr *) packet;
     uint16_t ether_type = ethhdr -> ether_type;
 
@@ -95,9 +90,6 @@ void sr_handlepacket(struct sr_instance* sr,
 
 }
 /* end sr_ForwardPacket */
-=======
-}/* end sr_ForwardPacket */
->>>>>>> origin/master
 
 
 /*--------------------------------------------------------------------- 
