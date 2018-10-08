@@ -12,7 +12,6 @@
 #include <netinet/in.h>
 #include <sys/time.h>
 #include <stdio.h>
-#include "sr_packethandler.h"
 
 #include "sr_protocol.h"
 #ifdef VNL

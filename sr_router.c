@@ -19,6 +19,8 @@
 #include "sr_rt.h"
 #include "sr_router.h"
 #include "sr_protocol.h"
+#include "sr_packethandler.h"
+#include "arp_cache.h"
 
 /*--------------------------------------------------------------------- 
  * Method: sr_init(void)
@@ -32,6 +34,14 @@ void sr_init(struct sr_instance* sr)
 {
     /* REQUIRES */
     assert(sr);
+
+    for(int i=0;i<10;i++){
+        ipbuffer[i]-> counter =0;
+        ipbuffer[i]->sender_ip =0;
+        for(int j=0;j<300;j++){
+            ipbuffer[i]-> packet[j] =NULL;
+            ipbuffer[i]->packetLen[j] =0;   
+        }
 
     /* Add initialization code here! */
 
@@ -58,8 +68,7 @@ void sr_init(struct sr_instance* sr)
 void sr_handlepacket(struct sr_instance* sr, 
         uint8_t * packet/* lent */,
         unsigned int len,
-        char* interface/* lent */)
-{
+        char* interface/* lent */){
     /* REQUIRES */
     assert(sr);
     assert(packet);
@@ -70,8 +79,8 @@ void sr_handlepacket(struct sr_instance* sr,
     struct sr_ethernet_hdr *ethhdr = (struct sr_ethernet_hdr *) packet;
     uint16_t ether_type = ethhdr -> ether_type;
 
-    printf("The ether_type is  %d \n",ntohs(ether_type);
-
+    // printf("The ether_type is  %x \n",ntohs(ether_type));
+    printf("Interface: %s\n", interface);
     // Arp packet
     if(ntohs(ether_type) == ETHERTYPE_ARP){
         struct sr_arphdr *arphdr = (struct sr_arphdr*) (packet+sizeof(struct sr_ethernet_hdr));
@@ -84,15 +93,15 @@ void sr_handlepacket(struct sr_instance* sr,
         struct ip* iphdr = (struct ip*) (packet+sizeof(struct sr_ethernet_hdr));
 
         printf("Received an IP packet \n");
-        handleIp(iphdr);
+        handleIp(iphdr,sr,ethhdr,packet,len,interface);
     }
     else // unrecongized.
     {
         printf("I can not recongize this packet \n");
     }
-
-
 }
+
+
 /* end sr_ForwardPacket */
 
 

@@ -40,7 +40,7 @@ PURIFY= purify ${PFLAGS}
 
 sr_SRCS = vnlconn.c sr_router.c sr_main.c  \
           sr_if.c sr_rt.c sr_vns_comm.c   \
-          sr_dumper.c sha1.c sr_packethandler.c
+          sr_dumper.c sha1.c sr_packethandler.c arp_cache.c
 
 sr_OBJS = $(patsubst %.c,%.o,$(sr_SRCS))
 sr_DEPS = $(patsubst %.c,.%.d,$(sr_SRCS))

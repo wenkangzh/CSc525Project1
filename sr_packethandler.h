@@ -2,25 +2,37 @@
 #define SR_PACKETHANDLER_H
 
 
-#include <stdio.h>
-#include <assert.h>
 
+struct ipunit
+{	
+	// pointer to IP packet
 
-#include "sr_if.h"
-#include "sr_rt.h"
-#include "sr_router.h"
-#include "sr_protocol.h"
-#include "sr_router.h"
+	uint8_t  *packet [300];
+	int *packetLen [300];
+	// dst ip address that used to idetify different IP packet.
+	uint32_t sender_ip;
 
+	int counter;
 
-void handleArp( struct sr_arphdr *arphdr,
-				struct sr_instance* sr,
-				struct sr_ethernet_hdr *ethhdr,
-				uint8_t * packet/* lent */,
+};
+
+struct ipunit* ipbuffer[10];
+
+void handleArp( struct sr_arphdr *,
+				struct sr_instance* ,
+				struct sr_ethernet_hdr *,
+				uint8_t * /* lent */,
 				unsigned int len,
-				char* interface/* lent */);
-
-void handleIp(struct ip* iphdr);
+				char* /* lent */);
 
 
+void handleIp(  struct ip* ,
+                struct sr_instance* ,
+                struct sr_ethernet_hdr *,
+                uint8_t * /* lent */,
+                unsigned int ,
+                char* interface);
+
+void testarp(void);
+void testip(struct ip* );
 #endif
