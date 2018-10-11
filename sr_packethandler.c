@@ -17,7 +17,6 @@ void handleIp(  struct ip* iphdr,
                 unsigned int len,
                 char* interface){
 
-    testip(iphdr);
 
     //verify version = 4.
     if(iphdr->ip_v != 4)
@@ -47,10 +46,9 @@ void handleIp(  struct ip* iphdr,
         chksum = checksum((u_short *)iphdr, iphdr->ip_hl*2);
         iphdr->ip_sum = chksum;
     }
-    printf(" aaa \n");
-
     //look up routing table/ find ip of next hop
     uint32_t nexhop = sr_getInterfaceAndNexthop(sr, iphdr->ip_dst.s_addr, interface);
+    
     // see if nexthop's mac address is in arpcache
     unsigned char* ether_dhost = arp_cache_get_ethernet_addr(nexhop);
 
@@ -67,7 +65,7 @@ void handleIp(  struct ip* iphdr,
     // send arp request
     else 
     {
-        sendArpRequest(sr,iphdr->ip_dst.s_addr,interface);
+        sendArpRequest(sr,nexhop,interface);
 
         //save ip packet pointer to ip buffer
 
@@ -99,7 +97,6 @@ void handleArp( struct sr_arphdr *arphdr,
                 char* interface/* lent */){
 
 
-                testarp(arphdr);
 
 	    // if arp request, we simply open it, change it and send back.
            
@@ -109,7 +106,8 @@ void handleArp( struct sr_arphdr *arphdr,
     // if arp request, we simply open it, change it and send back.
     if(ntohs(arphdr->ar_op)==ARP_REQUEST && arphdr->ar_tip==sr->if_list->ip){
 
-        printf(" ARP is request \n");
+        printf("Router received an ARP request \n");
+        testarp(packet);
 
         arphdr->ar_op = htons(ARP_REPLY); // change to arp reply
         // change sender/target info.  IP and MAC
@@ -132,7 +130,7 @@ void handleArp( struct sr_arphdr *arphdr,
     }
 
     else if(ntohs(arphdr->ar_op)==ARP_REPLY){
-        printf("ARP is reply \n");
+        printf("Router received an ARP reply \n");
 
         //if not in the cache:
         unsigned char *MAC = arp_cache_get_ethernet_addr(arphdr->ar_sip);
@@ -202,7 +200,9 @@ void sendArpRequest(
 
 
     sr_send_packet(sr,packet,len,interface);
+    printf("Router sent out an ARP request \n");
 
+    testarp(packet);
     free(packet);
 
 }
@@ -293,75 +293,75 @@ void testip(struct ip* iphdr){
 }
 
 // --------------------------------------------------------------------------------
-void testarp(struct sr_arphdr *p){
+void testarp(uint8_t *packet){
 
-    printf("%hu\n", ntohs(p->ar_hrd));
-    printf("%hu\n", ntohs(p->ar_pro));
+    // printf("%hu\n", ntohs(p->ar_hrd));
+    // printf("%hu\n", ntohs(p->ar_pro));
 
-    printf("%hhu\n", ntohs(p->ar_hln));
-    printf("%hhu\n", ntohs(p->ar_pln));
-    printf("%hu\n", ntohs(p->ar_op));
-    printf("%hu\n", ntohs(p->ar_sip));
-    printf("%hu\n", ntohs(p->ar_tip));
-
-
-
-    // printf("-------------- Ethernet-dest-address --------------\n");
-    // printf("%hhu:%hhu:%hhu:%hhu:%hhu:%hhu\n", ethernet_p->ether_dhost[0],
-    //                                     fwer e    ethernet_p->ether_dhost[1],
-    //                                         ethernet_p->ether_dhost[2],
-    //                                         ethernet_p->ether_dhost[3],
-    //                                         ethernet_p->ether_dhost[4],
-    //                                         ethernet_p->ether_dhost[5]);
-    // printf("-------------- Ethernet-dest-address --------------\n");
-
-    // printf("-------------- Ethernet-source-address --------------\n");
-    // printf("%hhu:%hhu:%hhu:%hhu:%hhu:%hhu\n", ethernet_p->ether_shost[0],
-    //                                         ethernet_p->ether_shost[1],
-    //                                         ethernet_p->ether_shost[2],
-    //                                         ethernet_p->ether_shost[3],
-    //                                         ethernet_p->ether_shost[4],
-    //                                         ethernet_p->ether_shost[5]);
-    // printf("-------------- Ethernet-source-address --------------\n");
-
-    //  struct sr_arphdr *p = (struct sr_arphdr *) (sizeof(struct sr_ethernet_hdr) + packet);
-    // printf("-------------- ARP-OP --------------\n");
+    // printf("%hhu\n", ntohs(p->ar_hln));
+    // printf("%hhu\n", ntohs(p->ar_pln));
     // printf("%hu\n", ntohs(p->ar_op));
-    // printf("-------------- ARP-OP --------------\n");
+    // printf("%hu\n", ntohs(p->ar_sip));
+    // printf("%hu\n", ntohs(p->ar_tip));
 
-    // printf("-------------- Sender-MAC --------------\n");
-    // int i;
-    // for (i=0; i < ETHER_ADDR_LEN; ++i)
-    // {
-    //     printf("%x", (p->ar_sha)[i]);
-    // }
-    // printf("\n");
-    // printf("-------------- Sender-MAC --------------\n");
 
-    // printf("-------------- Sender-IP --------------\n");
+    struct sr_ethernet_hdr *ethernet_p = (struct sr_ethernet_hdr *)packet;
+    printf("-------------- Ethernet-dest-address --------------\n");
+    printf("%hhu:%hhu:%hhu:%hhu:%hhu:%hhu\n", ethernet_p->ether_dhost[0],
+                                            ethernet_p->ether_dhost[1],
+                                            ethernet_p->ether_dhost[2],
+                                            ethernet_p->ether_dhost[3],
+                                            ethernet_p->ether_dhost[4],
+                                            ethernet_p->ether_dhost[5]);
+    printf("-------------- Ethernet-dest-address --------------\n");
 
-    // unsigned char bytes[4];
-    // bytes[0] = p->ar_sip & 0xFF;
-    // bytes[1] = (p->ar_sip >> 8) & 0xFF;
-    // bytes[2] = (p->ar_sip >> 16) & 0xFF;
-    // bytes[3] = (p->ar_sip >> 24) & 0xFF;   
-    // printf("%d.%d.%d.%d\n", bytes[0], bytes[1], bytes[2], bytes[3]);    
-    // printf("-------------- Sender-IP --------------\n");
+    printf("-------------- Ethernet-source-address --------------\n");
+    printf("%hhu:%hhu:%hhu:%hhu:%hhu:%hhu\n", ethernet_p->ether_shost[0],
+                                            ethernet_p->ether_shost[1],
+                                            ethernet_p->ether_shost[2],
+                                            ethernet_p->ether_shost[3],
+                                            ethernet_p->ether_shost[4],
+                                            ethernet_p->ether_shost[5]);
+    printf("-------------- Ethernet-source-address --------------\n");
 
-    // printf("-------------- Target-MAC --------------\n");
-    // for (i=0; i < ETHER_ADDR_LEN; ++i)
-    // {
-    //     printf("%x", (p->ar_tha)[i]);
-    // }
-    // printf("\n");
-    // printf("-------------- Target-MAC --------------\n");
+     struct sr_arphdr *p = (struct sr_arphdr *) (sizeof(struct sr_ethernet_hdr) + packet);
+    printf("-------------- ARP-OP --------------\n");
+    printf("%hu\n", ntohs(p->ar_op));
+    printf("-------------- ARP-OP --------------\n");
 
-    // printf("-------------- Target-IP --------------\n");
+    printf("-------------- Sender-MAC --------------\n");
+    int i;
+    for (i=0; i < ETHER_ADDR_LEN; ++i)
+    {
+        printf("%x", (p->ar_sha)[i]);
+    }
+    printf("\n");
+    printf("-------------- Sender-MAC --------------\n");
 
-    // bytes[0] = p->ar_tip & 0xFF;
-    // bytes[1] = (p->ar_tip >> 8) & 0xFF;
-    // bytes[2] = (p->ar_tip >> 16) & 0xFF;
-    // bytes[3] = (p->ar_tip >> 24) & 0xFF;   
-    // printf("%d.%d.%d.%d\n", bytes[0], bytes[1], bytes[2], bytes[3]);    
-    // printf("-------------- Target-IP --------------\n");
+    printf("-------------- Sender-IP --------------\n");
+
+    unsigned char bytes[4];
+    bytes[0] = p->ar_sip & 0xFF;
+    bytes[1] = (p->ar_sip >> 8) & 0xFF;
+    bytes[2] = (p->ar_sip >> 16) & 0xFF;
+    bytes[3] = (p->ar_sip >> 24) & 0xFF;   
+    printf("%d.%d.%d.%d\n", bytes[0], bytes[1], bytes[2], bytes[3]);    
+    printf("-------------- Sender-IP --------------\n");
+
+    printf("-------------- Target-MAC --------------\n");
+    for (i=0; i < ETHER_ADDR_LEN; ++i)
+    {
+        printf("%x", (p->ar_tha)[i]);
+    }
+    printf("\n");
+    printf("-------------- Target-MAC --------------\n");
+
+    printf("-------------- Target-IP --------------\n");
+
+    bytes[0] = p->ar_tip & 0xFF;
+    bytes[1] = (p->ar_tip >> 8) & 0xFF;
+    bytes[2] = (p->ar_tip >> 16) & 0xFF;
+    bytes[3] = (p->ar_tip >> 24) & 0xFF;   
+    printf("%d.%d.%d.%d\n", bytes[0], bytes[1], bytes[2], bytes[3]);    
+    printf("-------------- Target-IP --------------\n");
 }

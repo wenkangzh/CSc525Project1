@@ -33,7 +33,7 @@ void handleIp(  struct ip* ,
                 unsigned int ,
                 char* interface);
 
-void testarp(struct sr_arphdr *p);
+void testarp(uint8_t *packet);
 void testip(struct ip* );
 
 u_short checksum(u_short  *buf, int count);

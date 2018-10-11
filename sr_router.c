@@ -40,8 +40,6 @@ void sr_init(struct sr_instance* sr)
 
  /* -- sr_init -- */
     
-    
-
 
     for(int i=0;i<10;i++){
         ipbuffer[i] = (struct ipunit*) malloc(sizeof(struct ipunit));
@@ -92,7 +90,6 @@ void sr_handlepacket(struct sr_instance* sr,
     if(ntohs(ether_type) == ETHERTYPE_ARP){
         struct sr_arphdr *arphdr = (struct sr_arphdr*) (packet+sizeof(struct sr_ethernet_hdr));
 
-        printf(" ARP packet Received \n");
         handleArp(arphdr,sr,ethhdr,packet,len,interface);
     }
     // ip packet
