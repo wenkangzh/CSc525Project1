@@ -47,7 +47,7 @@ void sr_init(struct sr_instance* sr)
 
 } /* -- sr_init -- */
 
-
+}
 
 /*---------------------------------------------------------------------
  * Method: sr_handlepacket(uint8_t* p,char* interface)

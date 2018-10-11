@@ -8,7 +8,7 @@ struct ipunit
 	// pointer to IP packet
 
 	uint8_t  *packet [300];
-	int *packetLen [300];
+	int packetLen [300];
 	// dst ip address that used to idetify different IP packet.
 	uint32_t sender_ip;
 
@@ -33,6 +33,20 @@ void handleIp(  struct ip* ,
                 unsigned int ,
                 char* interface);
 
-void testarp(void);
+void testarp(struct sr_arphdr *p);
 void testip(struct ip* );
+
+u_short checksum(u_short  *buf, int count);
+
+uint32_t sr_getInterfaceAndNexthop(struct sr_instance *sr, 
+                                uint32_t iphdrDest,
+                                char * interface);
+
+
+void sendArpRequest(
+                    struct sr_instance* sr,
+                    uint32_t nexthopIP,//pass in final ip in ip header 
+                    char* interface // going out inferface
+                        );
+
 #endif

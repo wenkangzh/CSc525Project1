@@ -10,26 +10,25 @@
 #include "sr_protocol.h"
 #include "arp_cache.h"
 
-int handleIp(  struct ip* iphdr,
+void handleIp(  struct ip* iphdr,
                 struct sr_instance* sr,
                 struct sr_ethernet_hdr *ethhdr,
                 uint8_t * packet/* lent */,
                 unsigned int len,
                 char* interface){
 
-
     testip(iphdr);
     //verify version = 4.
     if(iphdr->ip_v != 4)
         //drop;
-        return -1;
+        return;
 
     //check if the destination is router itself. and TCP/UDP, drop.
     uint32_t ipdst = (iphdr->ip_dst).s_addr;
     // tcp = 6 udp =15
     if((ipdst==sr->if_list->ip)&&(iphdr->ip_p==6||iphdr->ip_p==15)){
         //drop packet
-        return -1;
+        return;
     }
 
 
@@ -37,31 +36,43 @@ int handleIp(  struct ip* iphdr,
     iphdr->ip_ttl -= 1;
     if(iphdr->ip_ttl==0)
         //drop packet
-        return -1;
+        return;
+
     else{
-        updatechecksum();
+        u_short chksum;
+
+
+        iphdr->ip_sum =0;
+        chksum = checksum((u_short *)iphdr, iphdr->ip_hl*2);
+        iphdr->ip_sum = chksum;
     }
 
 
     //look up routing table/ find ip of next hop
+    uint32_t nexhop = sr_getInterfaceAndNexthop(sr, iphdr->ip_dst.s_addr, interface);
+    // see if nexthop's mac address is in arpcache
+    unsigned char* ether_dhost = arp_cache_get_ethernet_addr(nexhop);
 
-    if(existin_routingtable){
-        sr_send_packet(sr,packet,len,nexthopinterface);
-    }
+    //change ethernet dhost
+    memcpy(ethhdr->ether_shost,ethhdr->ether_dhost,6);
+    memcpy(ethhdr->ether_dhost,ether_dhost,6);
 
+    if(ether_dhost!=NULL)
+        sr_send_packet(sr,packet,len,interface);
+    
     else 
     {
-        sendArpRequest(sr,iphdr->ip_dst->s_addr);
+        sendArpRequest(sr,iphdr->ip_dst.s_addr,interface);
 
-        //save to ip buffer
+        //save ip packet pointer to ip buffer
 
         for(int i=0;i<10;i++){
             //find ipbuffer unit for this ip address
             if(ipbuffer[i]->sender_ip==0){
-                ipbuffer[i]->sender_ip==iphdr->ip_dst->s_addr;
-                counter++;
-                ipbuffer[i]->packet[counter] = packet;
-                ipbuffer[i]->packetLen[counter] = packetLen;
+                ipbuffer[i]->sender_ip==iphdr->ip_dst.s_addr;
+                ipbuffer[i]->counter ++;
+                ipbuffer[i]->packet[ipbuffer[i]->counter] = packet;
+                ipbuffer[i]->packetLen[ipbuffer[i]->counter] = packetLen;
                 break;
             }
 
@@ -83,7 +94,7 @@ void handleArp( struct sr_arphdr *arphdr,
                 char* interface/* lent */){
 
 
-                testarp();
+                testarp(arphdr);
 
 	    // if arp request, we simply open it, change it and send back.
            
@@ -133,7 +144,7 @@ void handleArp( struct sr_arphdr *arphdr,
                 for(int j=0;j<ipbuffer[i]->counter;j++){
 
                     int packetLen = ipbuffer[i]->packetLen[j];
-                    sr_send_packet(sr,ipbuffer[i]->packet[j],packetLen,ipdestinferface);
+                    sr_send_packet(sr,ipbuffer[i]->packet[j],packetLen,interface);
 
                     ipbuffer[i]->packetLen[j] =0;
                     ipbuffer[i]->packet[j] =NULL;
@@ -142,7 +153,7 @@ void handleArp( struct sr_arphdr *arphdr,
                 ipbuffer[i]->sender_ip=0;
             }
         }
-
+//
 
     }
 
@@ -152,7 +163,8 @@ void handleArp( struct sr_arphdr *arphdr,
 
 void sendArpRequest(
                     struct sr_instance* sr,
-                    uint32_t ip //pass in final ip in ip header 
+                    uint32_t nexthopIP,//pass in final ip in ip header 
+                    char* interface // going out inferface
                         ){
 
      // set len/ malloc packet             
@@ -162,11 +174,6 @@ void sendArpRequest(
     struct sr_ethernet_hdr *ethhdr = (struct sr_ethernet_hdr *) packet;
     struct sr_arphdr *arphdr = (struct sr_arphdr*) (packet+sizeof(struct sr_ethernet_hdr));
 
-
-    //search routing table for nexthop (gonna be ether target ip)/ interface.
-    char* interface= sr_getInterfaceForARP(sr,ip);
-    // if found ip in routing table
-
     // set type
     ethhdr -> ether_type = htons(ETHERTYPE_ARP); 
 
@@ -174,18 +181,19 @@ void sendArpRequest(
     memset(ethhdr->ether_dhost, 0xff, ETHER_ADDR_LEN);
     memcpy(ethhdr->ether_shost,sr->if_list->addr,6);
 
-    memcpy(ethhdr->ar_sha,sr->if_list->addr,6);          
-    memcpy(ethhdr->ar_tha,,6);
+    memcpy(arphdr->ar_sha,sr->if_list->addr,6);          
+    memset(arphdr->ar_tha,0xFF,6);
 
-    sr_arphdr -> ar_hrd = ETHER_ADDR_LEN ;          
-    sr_arphdr -> ar_pro =htons(ethertype_ip);            
-    sr_arphdr -> ar_hln = ETHER_ADDR_LEN ;            
-    sr_arphdr -> ar_pln = 4;            
-    sr_arphdr -> ar_op = htons(ar_op);            
+    arphdr -> ar_hrd = htons(ARPHDR_ETHER) ;          
+    arphdr -> ar_pro =htons(ETHERTYPE_IP);            
+    arphdr -> ar_hln = 6 ;            
+    arphdr -> ar_pln = 4;            
+    arphdr -> ar_op = htons(ARP_REQUEST);            
 
-    sr_arphdr -> ar_sip = sr->if_list->ip;  
-    // how to find next hop ip?? 
-    sr_arphdr -> ar_tip = ?????????;  
+    arphdr -> ar_sip = sr->if_list->ip; 
+
+    // set target ip to nexthop ip
+    arphdr -> ar_tip = nexthopIP;
 
 
     sr_send_packet(sr,packet,len,interface);
@@ -194,50 +202,70 @@ void sendArpRequest(
 
 }
 //--------------------------------------------------------------------------------
-unsigned short checksum(unsigned short *buf, int count) { 
-//     register u long sum = 0;
+u_short checksum(u_short *buf, int count) {
 
-//     while (count--) { 
+    int i;
+    u_long sum=0;
+    for(i=0;i< count;i++){
 
-//         sum += *buf++;
-//         if (sum & 0xFFFF0000) { 
-//              carry occurred, so wrap around 
-//             sum &= 0xFFFF;
-//             sum++; 
-//         }
+        sum+= ntohs(*buf);
+        buf++;
 
-// }
-//     return ~(sum & 0xFFFF);
+    }
+
+    return ~((sum +(sum >>16)) & 0xFFFF);
+
 }
 
 
 // --------------------------------------------------------------------------------
-char * sr_getInterfaceForARP(struct sr_instance *sr, uint32_t ip, ) {
-    struct sr_rt *rt = sr->routing_table;
-    while (rt) {
+uint32_t sr_getInterfaceAndNexthop(struct sr_instance *sr, 
+                                uint32_t iphdrDest,
+                                char * interface) {
 
-        if ((ip & rt->mask.s_addr) == rt->dest.s_addr) 
-            return rt->interface;
+    struct sr_rt *rt = sr->routing_table;
+    char* defautInterface;
+    uint32_t defaultNexthop;
+    uint32_t nexthop;
+
+    while (rt) {
+        if((iphdrDest & rt->dest.s_addr) == 0){
+            defautInterface = rt->interface;
+            defaultNexthop = rt-> gw.s_addr;
+        }
+
+        if ((iphdrDest & rt->mask.s_addr) == (rt->dest.s_addr & rt->mask.s_addr)){
+            //get interface
+            interface = rt->interface;
+            //get nexthop  if this is dest or not
+            nexthop = rt->gw.s_addr==0?rt->dest.s_addr:rt->gw.s_addr;
+
+            return nexthop;
+        }
         
         rt = rt->next;
     }
+    // default interface
+    rt = sr->routing_table;
+    interface = defautInterface;
+    nexthop = defaultNexthop;
 
-    return NULL;
+    return nexthop;
 }
 
 // --------------------------------------------------------------------------------
 void testip(struct ip* iphdr){
-    printf("total length:  %hhu\n", ntohs(iphdr->ip_len));
-    printf("header length in 4bytes word: %u\n", (iphdr->ip_hl));
-    printf("type of service:  %hhu\n", iphdr->ip_tos);
-    printf("sr_protocol:  %hhu\n", iphdr->ip_p);
-    printf("TTL:  %hhu\n", iphdr->ip_ttl);
+    // printf("total length:  %hhu\n", ntohs(iphdr->ip_len));
+    // printf("header length in 4bytes word: %u\n", (iphdr->ip_hl));
+    // printf("type of service:  %hhu\n", iphdr->ip_tos);
+    // printf("sr_protocol:  %hhu\n", iphdr->ip_p);
+    // printf("TTL:  %hhu\n", iphdr->ip_ttl);
 
     
-    uint32_t ipsrc = (iphdr->ip_src).s_addr;
-    uint32_t ipdst = (iphdr->ip_dst).s_addr;
+    // uint32_t ipsrc = (iphdr->ip_src).s_addr;
+    // uint32_t ipdst = (iphdr->ip_dst).s_addr;
 
-    printf("%u\n",ipdst);
+    // printf("%u\n",ipdst);
     // printf("-------------- Sender-IP --------------\n");
 
     // unsigned char bytes[4];
@@ -260,7 +288,7 @@ void testip(struct ip* iphdr){
 }
 
 // --------------------------------------------------------------------------------
-void testarp(struct sr_arphdr *p,){
+void testarp(struct sr_arphdr *p){
 
     printf("%hu\n", ntohs(p->ar_hrd));
     printf("%hu\n", ntohs(p->ar_pro));
