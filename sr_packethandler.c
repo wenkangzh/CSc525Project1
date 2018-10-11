@@ -69,10 +69,10 @@ void handleIp(  struct ip* iphdr,
         for(int i=0;i<10;i++){
             //find ipbuffer unit for this ip address
             if(ipbuffer[i]->sender_ip==0){
-                ipbuffer[i]->sender_ip==iphdr->ip_dst.s_addr;
+                ipbuffer[i]->sender_ip=iphdr->ip_dst.s_addr;
                 ipbuffer[i]->counter ++;
                 ipbuffer[i]->packet[ipbuffer[i]->counter] = packet;
-                ipbuffer[i]->packetLen[ipbuffer[i]->counter] = packetLen;
+                ipbuffer[i]->packetLen[ipbuffer[i]->counter] = len;
                 break;
             }
 
@@ -168,7 +168,7 @@ void sendArpRequest(
                         ){
 
      // set len/ malloc packet             
-    unsigned int len = sizeof(sr_ethernet_hdr) + sizeof(sr_arphdr);
+    unsigned int len = sizeof(struct sr_ethernet_hdr) + sizeof(struct sr_arphdr);
     uint8_t * packet = (uint8_t*) malloc (len);   
     // locate ehdr/ arphdr
     struct sr_ethernet_hdr *ethhdr = (struct sr_ethernet_hdr *) packet;
