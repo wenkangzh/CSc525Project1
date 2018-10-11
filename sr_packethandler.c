@@ -18,6 +18,7 @@ void handleIp(  struct ip* iphdr,
                 char* interface){
 
     testip(iphdr);
+
     //verify version = 4.
     if(iphdr->ip_v != 4)
         //drop;
@@ -46,20 +47,24 @@ void handleIp(  struct ip* iphdr,
         chksum = checksum((u_short *)iphdr, iphdr->ip_hl*2);
         iphdr->ip_sum = chksum;
     }
-
+    printf(" aaa \n");
 
     //look up routing table/ find ip of next hop
     uint32_t nexhop = sr_getInterfaceAndNexthop(sr, iphdr->ip_dst.s_addr, interface);
     // see if nexthop's mac address is in arpcache
     unsigned char* ether_dhost = arp_cache_get_ethernet_addr(nexhop);
 
-    //change ethernet dhost
-    memcpy(ethhdr->ether_shost,ethhdr->ether_dhost,6);
-    memcpy(ethhdr->ether_dhost,ether_dhost,6);
 
-    if(ether_dhost!=NULL)
+    // if we found Mac in arp cache
+    if(ether_dhost!=NULL){
+            //change ethernet dhost
+        memcpy(ethhdr->ether_shost,ethhdr->ether_dhost,6);
+        memcpy(ethhdr->ether_dhost,ether_dhost,6);
+
         sr_send_packet(sr,packet,len,interface);
+    }
     
+    // send arp request
     else 
     {
         sendArpRequest(sr,iphdr->ip_dst.s_addr,interface);
