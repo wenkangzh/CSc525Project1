@@ -35,6 +35,7 @@ void arp_cache_add_mapping(unsigned char ether[], uint32_t ip)
 	temp->ts = time(NULL);
 	temp->next = arp_cache_list;
 	arp_cache_list = temp;
+	arp_cache_print_list();
 }
 
 /*
@@ -119,12 +120,12 @@ void arp_cache_print_list()
 	while(traverse != NULL){
 		printf("---------------------------------------\n");
 		printf("Ethernet Address:\t");
-	   	printf("%hhu:%hhu:%hhu:%hhu:%hhu:%hhu\n", 	traverse->ether_addr[0],
-					                                    traverse->ether_addr[1],
-					                                    traverse->ether_addr[2],
-					                                    traverse->ether_addr[3],
-					                                    traverse->ether_addr[4],
-					                                    traverse->ether_addr[5]);
+	   	printf("%x:%x:%x:%x:%x:%x\n", 	traverse->ether_addr[0],
+					                    traverse->ether_addr[1],
+	                                    traverse->ether_addr[2],
+	                                    traverse->ether_addr[3],
+	                                    traverse->ether_addr[4],
+	                                    traverse->ether_addr[5]);
 
 	   	printf("IP Address:\t");
 	   	unsigned char bytes[4];

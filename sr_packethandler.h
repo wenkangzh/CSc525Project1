@@ -48,5 +48,6 @@ void sendArpRequest(
                     uint32_t nexthopIP,//pass in final ip in ip header 
                     char* interface // going out inferface
                         );
+uint32_t findAddrsForInterface(struct sr_instance *sr, char *interface, unsigned char *addr);
 
 #endif

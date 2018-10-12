@@ -31,7 +31,6 @@ void handleIp(  struct ip* iphdr,
         return;
     }
 
-
     //decrement then check TTL
     iphdr->ip_ttl -= 1;
     if(iphdr->ip_ttl==0)
@@ -48,16 +47,44 @@ void handleIp(  struct ip* iphdr,
     }
     //look up routing table/ find ip of next hop
     uint32_t nexhop = sr_getInterfaceAndNexthop(sr, iphdr->ip_dst.s_addr, interface);
+    // interface here already got updated
     
     // see if nexthop's mac address is in arpcache
     unsigned char* ether_dhost = arp_cache_get_ethernet_addr(nexhop);
 
 
+    // the source address need to be corrosponding to the interface.
+    unsigned char *out_addr_in_if = malloc(sizeof(unsigned char) * 6);
+    findAddrsForInterface(sr,interface, out_addr_in_if);
+    memcpy(ethhdr->ether_shost,out_addr_in_if,6);
+
+
     // if we found Mac in arp cache
     if(ether_dhost!=NULL){
-            //change ethernet dhost
-        memcpy(ethhdr->ether_shost,ethhdr->ether_dhost,6);
+        // get the ethernet address from cache to ether header
         memcpy(ethhdr->ether_dhost,ether_dhost,6);
+
+        
+        printf("Sending IP packet with interface %s\n", interface);
+
+        // printing ethernet header
+        struct sr_ethernet_hdr *ethernet_p = (struct sr_ethernet_hdr *)packet;
+        printf("-------------- Ethernet-dest-address --------------\n");
+        printf("%x:%x:%x:%x:%x:%x\n", ethernet_p->ether_dhost[0],
+                                    ethernet_p->ether_dhost[1],
+                                    ethernet_p->ether_dhost[2],
+                                    ethernet_p->ether_dhost[3],
+                                    ethernet_p->ether_dhost[4],
+                                    ethernet_p->ether_dhost[5]);
+        printf("-------------- Ethernet-dest-address --------------\n");
+        printf("-------------- Ethernet-source-address --------------\n");
+        printf("%x:%x:%x:%x:%x:%x\n", ethernet_p->ether_shost[0],
+                                    ethernet_p->ether_shost[1],
+                                    ethernet_p->ether_shost[2],
+                                    ethernet_p->ether_shost[3],
+                                    ethernet_p->ether_shost[4],
+                                    ethernet_p->ether_shost[5]);
+        printf("-------------- Ethernet-source-address --------------\n");
 
         sr_send_packet(sr,packet,len,interface);
     }
@@ -145,8 +172,12 @@ void handleArp( struct sr_arphdr *arphdr,
             if(ipbuffer[i]->sender_ip==arphdr->ar_sip){
 
                 for(int j=0;j<ipbuffer[i]->counter;j++){
-
+                    if(! ipbuffer[i]->packet[j]){
+                        continue;
+                    }
                     int packetLen = ipbuffer[i]->packetLen[j];
+                    struct sr_ethernet_hdr *ether_p = (struct sr_ethernet_hdr *)ipbuffer[i]->packet[j];
+                    memcpy(ether_p->ether_dhost, arphdr->ar_sha, 6);
                     sr_send_packet(sr,ipbuffer[i]->packet[j],packetLen,interface);
 
                     ipbuffer[i]->packetLen[j] =0;
@@ -161,6 +192,22 @@ void handleArp( struct sr_arphdr *arphdr,
     }
 
  
+}
+
+// returns the ip addr and set addr to be ether addr
+uint32_t findAddrsForInterface(struct sr_instance *sr, char *interface, unsigned char *addr)
+{
+    struct sr_if *if_p = sr->if_list;
+    while(if_p)
+    {
+        if(strcmp(interface, if_p->name)==0){
+            memcpy(addr, if_p->addr, sizeof(unsigned char) * 6);
+            return if_p->ip;
+        }
+        if_p = if_p->next;
+    }
+    printf("NO SUCH INTERFACE\n");
+    return 0;
 }
 // --------------------------------------------------------------------------------
 
@@ -182,10 +229,13 @@ void sendArpRequest(
 
     //broadcast/ set  MAC
     memset(ethhdr->ether_dhost, 0xff, ETHER_ADDR_LEN);
-    memcpy(ethhdr->ether_shost,sr->if_list->addr,6);
+    // need to find the ether address correspond to the interface
+    unsigned char *out_addr_in_if = malloc(sizeof(unsigned char) * 6);
+    uint32_t out_ip_in_if = findAddrsForInterface(sr,interface, out_addr_in_if);
+    memcpy(ethhdr->ether_shost,out_addr_in_if,6);
 
-    memcpy(arphdr->ar_sha,sr->if_list->addr,6);          
-    memset(arphdr->ar_tha,0xFF,6);
+    memcpy(arphdr->ar_sha,out_addr_in_if,6);          
+    memset(arphdr->ar_tha,0x00,6);
 
     arphdr -> ar_hrd = htons(ARPHDR_ETHER) ;          
     arphdr -> ar_pro =htons(ETHERTYPE_IP);            
@@ -193,14 +243,14 @@ void sendArpRequest(
     arphdr -> ar_pln = 4;            
     arphdr -> ar_op = htons(ARP_REQUEST);            
 
-    arphdr -> ar_sip = sr->if_list->ip; 
+    arphdr -> ar_sip = out_ip_in_if; 
 
     // set target ip to nexthop ip
     arphdr -> ar_tip = nexthopIP;
 
 
     sr_send_packet(sr,packet,len,interface);
-    printf("Router sent out an ARP request \n");
+    printf("Router sent out an ARP request at interface: %s\n", interface);
 
     testarp(packet);
     free(packet);
@@ -237,13 +287,16 @@ uint32_t sr_getInterfaceAndNexthop(struct sr_instance *sr,
         if((iphdrDest & rt->dest.s_addr) == 0){
             defautInterface = rt->interface;
             defaultNexthop = rt-> gw.s_addr;
+            rt = rt->next;
+            continue;
         }
-
+        // printf("Comparing routing table\n");
+        // sr_print_routing_table(sr);
         if ((iphdrDest & rt->mask.s_addr) == (rt->dest.s_addr & rt->mask.s_addr)){
             //get interface
-            interface = rt->interface;
+            strcpy(interface,rt->interface);
             //get nexthop  if this is dest or not
-            nexthop = rt->gw.s_addr==0?rt->dest.s_addr:rt->gw.s_addr;
+            nexthop = rt->gw.s_addr==0?iphdrDest:rt->gw.s_addr;
 
             return nexthop;
         }
@@ -254,6 +307,8 @@ uint32_t sr_getInterfaceAndNexthop(struct sr_instance *sr,
     rt = sr->routing_table;
     interface = defautInterface;
     nexthop = defaultNexthop;
+
+
 
     return nexthop;
 }
@@ -307,21 +362,21 @@ void testarp(uint8_t *packet){
 
     struct sr_ethernet_hdr *ethernet_p = (struct sr_ethernet_hdr *)packet;
     printf("-------------- Ethernet-dest-address --------------\n");
-    printf("%hhu:%hhu:%hhu:%hhu:%hhu:%hhu\n", ethernet_p->ether_dhost[0],
-                                            ethernet_p->ether_dhost[1],
-                                            ethernet_p->ether_dhost[2],
-                                            ethernet_p->ether_dhost[3],
-                                            ethernet_p->ether_dhost[4],
-                                            ethernet_p->ether_dhost[5]);
+    printf("%x:%x:%x:%x:%x:%x\n", ethernet_p->ether_dhost[0],
+                                ethernet_p->ether_dhost[1],
+                                ethernet_p->ether_dhost[2],
+                                ethernet_p->ether_dhost[3],
+                                ethernet_p->ether_dhost[4],
+                                ethernet_p->ether_dhost[5]);
     printf("-------------- Ethernet-dest-address --------------\n");
 
     printf("-------------- Ethernet-source-address --------------\n");
-    printf("%hhu:%hhu:%hhu:%hhu:%hhu:%hhu\n", ethernet_p->ether_shost[0],
-                                            ethernet_p->ether_shost[1],
-                                            ethernet_p->ether_shost[2],
-                                            ethernet_p->ether_shost[3],
-                                            ethernet_p->ether_shost[4],
-                                            ethernet_p->ether_shost[5]);
+    printf("%x:%x:%x:%x:%x:%x\n", ethernet_p->ether_shost[0],
+                                ethernet_p->ether_shost[1],
+                                ethernet_p->ether_shost[2],
+                                ethernet_p->ether_shost[3],
+                                ethernet_p->ether_shost[4],
+                                ethernet_p->ether_shost[5]);
     printf("-------------- Ethernet-source-address --------------\n");
 
      struct sr_arphdr *p = (struct sr_arphdr *) (sizeof(struct sr_ethernet_hdr) + packet);
@@ -333,7 +388,10 @@ void testarp(uint8_t *packet){
     int i;
     for (i=0; i < ETHER_ADDR_LEN; ++i)
     {
-        printf("%x", (p->ar_sha)[i]);
+        if(i == ETHER_ADDR_LEN-1)
+            printf("%x", (p->ar_sha)[i]);
+        else
+            printf("%x:", (p->ar_sha)[i]);
     }
     printf("\n");
     printf("-------------- Sender-MAC --------------\n");
@@ -351,7 +409,10 @@ void testarp(uint8_t *packet){
     printf("-------------- Target-MAC --------------\n");
     for (i=0; i < ETHER_ADDR_LEN; ++i)
     {
-        printf("%x", (p->ar_tha)[i]);
+        if(i == ETHER_ADDR_LEN-1)
+            printf("%x", (p->ar_tha)[i]);
+        else
+            printf("%x:", (p->ar_tha)[i]);
     }
     printf("\n");
     printf("-------------- Target-MAC --------------\n");
