@@ -15,8 +15,14 @@ struct ipunit
 	int counter;
 
 };
-
 struct ipunit* ipbuffer[10];
+
+struct sr_icmp_hdr
+{
+	uint8_t type;
+	uint8_t code;
+	uint16_t checksum;
+};
 
 void handleArp( struct sr_arphdr *,
 				struct sr_instance* ,
@@ -49,5 +55,10 @@ void sendArpRequest(
                     char* interface // going out inferface
                         );
 uint32_t findAddrsForInterface(struct sr_instance *sr, char *interface, unsigned char *addr);
+void send_icmp_echo_reply(  struct sr_instance* sr, 
+                            uint8_t * packet, 
+                            unsigned int len, 
+                            struct ip* iphdr, 
+                            char* interface);
 
 #endif
