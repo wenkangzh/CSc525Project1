@@ -43,12 +43,13 @@ void handleIp(  struct ip* iphdr,
 
         iphdr->ip_sum =0;
         chksum = checksum((u_short *)iphdr, iphdr->ip_hl*2);
-        iphdr->ip_sum = chksum;
+        iphdr->ip_sum = htons(chksum);
     }
+    printf("Interface before function call %s\n", interface);
     //look up routing table/ find ip of next hop
     uint32_t nexhop = sr_getInterfaceAndNexthop(sr, iphdr->ip_dst.s_addr, interface);
     // interface here already got updated
-    
+    printf("Interface after function call %s\n", interface);
     // see if nexthop's mac address is in arpcache
     unsigned char* ether_dhost = arp_cache_get_ethernet_addr(nexhop);
 
@@ -92,6 +93,7 @@ void handleIp(  struct ip* iphdr,
     // send arp request
     else 
     {
+        printf("Sending ARP request through %s\n", interface);
         sendArpRequest(sr,nexhop,interface);
 
         //save ip packet pointer to ip buffer
@@ -290,7 +292,7 @@ uint32_t sr_getInterfaceAndNexthop(struct sr_instance *sr,
     uint32_t nexthop;
 
     while (rt) {
-        if((iphdrDest & rt->dest.s_addr) == 0){
+        if((rt->dest.s_addr) == 0){
             defautInterface = rt->interface;
             defaultNexthop = rt-> gw.s_addr;
             rt = rt->next;
@@ -300,10 +302,11 @@ uint32_t sr_getInterfaceAndNexthop(struct sr_instance *sr,
         // sr_print_routing_table(sr);
         if ((iphdrDest & rt->mask.s_addr) == (rt->dest.s_addr & rt->mask.s_addr)){
             //get interface
+            printf("Interface in routing table: %s\n", rt->interface);
             strcpy(interface,rt->interface);
+            printf("Interface after copy%s\n", interface);
             //get nexthop  if this is dest or not
             nexthop = rt->gw.s_addr==0?iphdrDest:rt->gw.s_addr;
-
             return nexthop;
         }
         
@@ -311,7 +314,7 @@ uint32_t sr_getInterfaceAndNexthop(struct sr_instance *sr,
     }
     // default interface
     rt = sr->routing_table;
-    interface = defautInterface;
+    strcpy(interface, defautInterface);
     nexthop = defaultNexthop;
 
 
