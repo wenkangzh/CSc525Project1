@@ -142,14 +142,18 @@ void handleArp( struct sr_arphdr *arphdr,
         arphdr->ar_tip = arphdr->ar_sip;
         arphdr->ar_sip = tmp;
         
+        unsigned char *out_addr_in_if = malloc(sizeof(unsigned char) * 6);
+        findAddrsForInterface(sr,interface, out_addr_in_if);
+        // now out_addr_in_if contains correct hardware address
+
         //modify the arpMAC
         memcpy(arphdr->ar_tha,arphdr->ar_sha,6);
-        memcpy(arphdr->ar_sha,sr->if_list->addr,6);
+        memcpy(arphdr->ar_sha,out_addr_in_if,6);
 
 
         //modify ethernet header!
         memcpy(ethhdr->ether_dhost,ethhdr->ether_shost,6);
-        memcpy(ethhdr->ether_shost,sr->if_list->addr,6);
+        memcpy(ethhdr->ether_shost,out_addr_in_if,6);
 
  
         sr_send_packet(sr,packet,len,interface);
@@ -158,6 +162,8 @@ void handleArp( struct sr_arphdr *arphdr,
 
     else if(ntohs(arphdr->ar_op)==ARP_REPLY){
         printf("Router received an ARP reply \n");
+
+        testarp(packet);
 
         //if not in the cache:
         unsigned char *MAC = arp_cache_get_ethernet_addr(arphdr->ar_sip);
