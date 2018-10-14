@@ -32,6 +32,9 @@ void send_icmp_echo_reply(  struct sr_instance* sr,
     uint32_t temp_ip = iphdr->ip_src.s_addr;
     iphdr->ip_src.s_addr = iphdr->ip_dst.s_addr;
     iphdr->ip_dst.s_addr = temp_ip;
+    iphdr->ip_sum = 0;
+    u_short new_checksum = checksum((u_short *)iphdr, iphdr->ip_hl * 2);
+    iphdr->ip_sum = htons(new_checksum);
     printf("Sending back echo reply through %s\n", interface);
     sr_send_packet(sr,packet,len,interface);
 
