@@ -131,7 +131,8 @@ void* pwospf_run_thread(void* arg)
         pwospf_lock(sr->ospf_subsys);
 
         pwospf_send_hello(sr);
-        count++;
+        count++; 
+        
         if(count%6 ==0)
             pwospf_send_LSU(sr); 
 
